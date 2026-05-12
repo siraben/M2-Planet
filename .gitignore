@@ -23,3 +23,5 @@ bin/
 temp/
 test/scratch/
 scratch/
+.envrc
+result
