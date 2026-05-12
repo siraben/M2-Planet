@@ -2097,6 +2097,15 @@ void expression(void)
 	}
 }
 
+void comma_expr(void)
+{
+	expression();
+	while(match(",", global_token->s))
+	{
+		require_extra_token();
+		expression();
+	}
+}
 
 int iskeywordp(char* s)
 {
@@ -2302,7 +2311,7 @@ void process_if(void)
 
 	global_token = global_token->next;
 	require_match("ERROR in process_if\nMISSING (\n", "(");
-	expression();
+	comma_expr();
 
 	emit_jump_if_zero(REGISTER_ZERO, "ELSE_", unique_id, "Jump to else");
 
@@ -2375,7 +2384,7 @@ void process_switch(void)
 	/* get what we are casing on */
 	global_token = global_token->next;
 	require_match("ERROR in process_switch\nMISSING (\n", "(");
-	expression();
+	comma_expr();
 	require_match("ERROR in process_switch\nMISSING )\n", ")");
 
 	/* Put the value in R1 as it is currently in R0 */
@@ -2504,7 +2513,7 @@ void process_for(void)
 	}
 	else if(!match(";", global_token->s))
 	{
-		expression();
+		comma_expr();
 		require_match("ERROR in process_for\nMISSING ;1\n", ";");
 	}
 	else
@@ -2514,7 +2523,7 @@ void process_for(void)
 
 	emit_label("FOR_", unique_id);
 
-	expression();
+	comma_expr();
 
 	emit_jump_if_zero(REGISTER_ZERO, "FOR_END_", unique_id, "Jump to end");
 
@@ -2523,7 +2532,7 @@ void process_for(void)
 	emit_label("FOR_ITER_", unique_id);
 
 	require_match("ERROR in process_for\nMISSING ;2\n", ";");
-	expression();
+	comma_expr();
 
 	emit_unconditional_jump("FOR_", unique_id, "Check conditional");
 
@@ -2589,7 +2598,7 @@ void process_do(void)
 
 	require_match("ERROR in process_do\nMISSING while\n", "while");
 	require_match("ERROR in process_do\nMISSING (\n", "(");
-	expression();
+	comma_expr();
 	require_match("ERROR in process_do\nMISSING )\n", ")");
 	require_match("ERROR in process_do\nMISSING ;\n", ";");
 
@@ -2629,7 +2638,7 @@ void process_while(void)
 
 	global_token = global_token->next;
 	require_match("ERROR in process_while\nMISSING (\n", "(");
-	expression();
+	comma_expr();
 
 	emit_jump_if_zero(REGISTER_ZERO, "END_WHILE_", unique_id, "Jump to end");
 
