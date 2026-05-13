@@ -35,10 +35,19 @@ void emit_out(char* s)
 
 void emit_label(char* prefix, char* name)
 {
-	emit_out(":");
-	emit_out(prefix);
-	emit_out(name);
-	emit_out("\n");
+	if(Architecture & ARCH_FAMILY_X86)
+	{
+		emit_out(prefix);
+		emit_out(name);
+		emit_out(":\n");
+	}
+	else
+	{
+		emit_out(":");
+		emit_out(prefix);
+		emit_out(name);
+		emit_out("\n");
+	}
 }
 
 char* emit_string;
@@ -67,13 +76,12 @@ char* integer_to_raw_byte_string(int value)
 	}
 
 	char* hex_table = "0123456789ABCDEF";
-	char* string;
-
-	string = calloc(6, sizeof(char));
-	string[0] = '\'';
-	string[1] = hex_table[value >> 4];
-	string[2] = hex_table[value & 15];
-	string[3] = '\'';
+	unsigned byte = value & 0xFF;
+	char* string = calloc(6, sizeof(char));
+	string[0] = '0';
+	string[1] = 'x';
+	string[2] = hex_table[byte >> 4];
+	string[3] = hex_table[byte & 15];
 	string[4] = ' ';
 
 	return string;
@@ -168,7 +176,7 @@ void emit_unconditional_jump(char* prefix, char* name, char* note)
 	}
 	else if(Architecture & ARCH_FAMILY_X86)
 	{
-		emit_out("jmp %");
+		emit_out("jmp ");
 		emit_out(prefix);
 		emit_out(name);
 	}
@@ -218,11 +226,11 @@ void emit_jump_if_zero(int reg, char* prefix, char* name, char* note)
 	}
 	else if(Architecture & ARCH_FAMILY_X86)
 	{
-		emit_out("test_");
+		emit_out("test ");
 		emit_out(reg_name);
-		emit_out(",");
+		emit_out(", ");
 		emit_out(reg_name);
-		emit_out("\nje %");
+		emit_out("\nje ");
 		emit_out(prefix);
 		emit_out(name);
 	}
@@ -279,11 +287,11 @@ void emit_jump_if_not_zero(int reg, char* prefix, char* name, char* note)
 	}
 	else if(Architecture & ARCH_FAMILY_X86)
 	{
-		emit_out("test_");
+		emit_out("test ");
 		emit_out(reg_name);
-		emit_out(",");
+		emit_out(", ");
 		emit_out(reg_name);
-		emit_out("\njne %");
+		emit_out("\njne ");
 		emit_out(prefix);
 		emit_out(name);
 	}
@@ -347,12 +355,12 @@ void emit_jump_if_equal(int reg1, int reg2, char* prefix, char* name, char* note
 	}
 	else if(Architecture & ARCH_FAMILY_X86)
 	{
-		emit_out("cmp_");
+		emit_out("cmp ");
 		emit_out(reg2_name);
-		emit_out(",");
+		emit_out(", ");
 		emit_out(reg1_name);
 
-		emit_out("\nje %");
+		emit_out("\nje ");
 		emit_out(prefix);
 		emit_out(name);
 	}
@@ -418,19 +426,20 @@ void emit_load_named_immediate(int reg, char* prefix, char* name, char* note)
 	}
 	else if(X86 == Architecture)
 	{
-		emit_out("mov_");
+		emit_out("mov ");
 		emit_out(reg_name);
-		emit_out(", &");
+		emit_out(", OFFSET FLAT:");
 		emit_out(prefix);
 		emit_out(name);
 	}
 	else if(AMD64 == Architecture)
 	{
-		emit_out("lea_");
+		emit_out("lea ");
 		emit_out(reg_name);
-		emit_out(",[rip+DWORD] %");
+		emit_out(", [rip+");
 		emit_out(prefix);
 		emit_out(name);
+		emit_out("]");
 	}
 	else if(ARMV7L == Architecture)
 	{
@@ -510,17 +519,17 @@ void write_load_immediate(int reg, int value, char* note)
 			/* This is the recommended way of zeroing a register on x86/amd64.
 			 * xor eax, eax (32 bit registers) for both x86 and amd64 since it
 			 * takes up a byte less and still zeros the register. */
-			emit_to_string("xor_e");
+			emit_to_string("xor e");
 			/* amd64 register starts with r but we need it to start with e */
 			emit_to_string(reg_name + 1);
-			emit_to_string(",e");
+			emit_to_string(", e");
 			emit_to_string(reg_name + 1);
 		}
 		else
 		{
-			emit_to_string("mov_");
+			emit_to_string("mov ");
 			emit_to_string(reg_name);
-			emit_to_string(", %");
+			emit_to_string(", ");
 			emit_to_string(value_string);
 		}
 	}
@@ -666,9 +675,9 @@ void write_add(int destination_reg, int source_reg, char* note)
 	}
 	else if(Architecture & ARCH_FAMILY_X86)
 	{
-		emit_to_string("add_");
+		emit_to_string("add ");
 		emit_to_string(destination_name);
-		emit_to_string(",");
+		emit_to_string(", ");
 		emit_to_string(source_name);
 	}
 	else if(ARMV7L == Architecture)
@@ -724,18 +733,16 @@ void write_add_immediate(int reg, int value, char* note)
 {
 	if((Architecture & ARCH_FAMILY_X86) && (reg == REGISTER_ZERO))
 	{
-		emit_to_string("add_");
+		emit_to_string("add ");
 		emit_to_string(register_from_string(reg));
-		emit_to_string(",");
+		emit_to_string(", ");
 
 		if(127 >= value && value >= -128)
 		{
-			emit_to_string("BYTE ");
-			emit_to_string(integer_to_raw_byte_string(value));
+			emit_to_string(int2str(value, 10, TRUE));
 		}
 		else
 		{
-			emit_to_string(" %");
 			emit_to_string(int2str(value, 10, TRUE));
 		}
 
@@ -788,9 +795,9 @@ void write_sub(int destination_reg, int source_reg, char* note)
 	}
 	else if(Architecture & ARCH_FAMILY_X86)
 	{
-		emit_to_string("sub_");
+		emit_to_string("sub ");
 		emit_to_string(destination_name);
-		emit_to_string(",");
+		emit_to_string(", ");
 		emit_to_string(source_name);
 		emit_to_string("\n");
 	}
@@ -847,19 +854,16 @@ void write_sub_immediate(int reg, int value, char* note)
 {
 	if((Architecture & ARCH_FAMILY_X86) && (reg == REGISTER_STACK || reg == REGISTER_ZERO))
 	{
-		emit_to_string("sub_");
+		emit_to_string("sub ");
 		emit_to_string(register_from_string(reg));
-		emit_to_string(",");
+		emit_to_string(", ");
 
 		if(127 >= value && value >= -128)
 		{
-
-			emit_to_string("BYTE ");
-			emit_to_string(integer_to_raw_byte_string(value));
+			emit_to_string(int2str(value, 10, TRUE));
 		}
 		else
 		{
-			emit_to_string(" %");
 			emit_to_string(int2str(value, 10, TRUE));
 		}
 
@@ -910,7 +914,7 @@ void emit_mul_into_register_zero(int reg, char* note)
 	}
 	else if(Architecture & ARCH_FAMILY_X86)
 	{
-		emit_out("mul_");
+		emit_out("mul ");
 		emit_out(reg_name);
 	}
 	else if(ARMV7L == Architecture)
@@ -964,9 +968,9 @@ void write_move(int destination_reg, int source_reg, char* note)
 	}
 	else if(Architecture & ARCH_FAMILY_X86)
 	{
-		emit_to_string("mov_");
+		emit_to_string("mov ");
 		emit_to_string(destination_name);
-		emit_to_string(",");
+		emit_to_string(", ");
 		emit_to_string(source_name);
 	}
 	else if(ARMV7L == Architecture)
@@ -1034,12 +1038,13 @@ void emit_load_relative_to_register(int destination, int offset_register, int va
 	}
 	else if(Architecture & ARCH_FAMILY_X86)
 	{
-		emit_out("lea_");
+		emit_out("lea ");
 		emit_out(destination_name);
-		emit_out(",[");
+		emit_out(", [");
 		emit_out(offset_name);
-		emit_out("+DWORD] %");
+		emit_out("+");
 		emit_out(value_string);
+		emit_out("]");
 	}
 	else if(ARMV7L == Architecture)
 	{
@@ -1120,9 +1125,9 @@ void emit_dereference(int reg, char* note)
 	}
 	else if(Architecture & ARCH_FAMILY_X86)
 	{
-		emit_out("mov_");
+		emit_out("mov ");
 		emit_out(reg_name);
-		emit_out(",[");
+		emit_out(", [");
 		emit_out(reg_name);
 		emit_out("]");
 	}
@@ -1172,7 +1177,7 @@ void emit_push(int reg, char* note)
 	}
 	else if(Architecture & ARCH_FAMILY_X86)
 	{
-		emit_out("push_");
+		emit_out("push ");
 		emit_out(reg_name);
 	}
 	else if(ARMV7L == Architecture)
@@ -1222,7 +1227,7 @@ void emit_pop(int reg, char* note)
 	}
 	else if(Architecture & ARCH_FAMILY_X86)
 	{
-		emit_out("pop_");
+		emit_out("pop ");
 		emit_out(reg_name);
 	}
 	else if(ARMV7L == Architecture)
@@ -1265,4 +1270,3 @@ void emit_return()
 {
 	emit_out(return_instruction);
 }
-
