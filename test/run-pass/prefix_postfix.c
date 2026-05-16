@@ -285,6 +285,43 @@ int pointers_postfix_complex(int* a, char* b, struct T* t) {
 int arr[3];
 char brr[3];
 struct T trr[3];
+int global_postfix_arr[4];
+int global_postfix_idx;
+int global_prefix_value;
+
+int global_postfix_subscript() {
+	global_postfix_idx = 1;
+	global_postfix_arr[0] = 10;
+	global_postfix_arr[1] = 11;
+	global_postfix_arr[2] = 12;
+
+	if(global_postfix_arr[global_postfix_idx++] != 11) return 1;
+	if(global_postfix_idx != 2) return 2;
+	if(global_postfix_arr[global_postfix_idx--] != 12) return 3;
+	if(global_postfix_idx != 1) return 4;
+	return 0;
+}
+
+int global_prefix_scalar() {
+	global_prefix_value = 1;
+	if(++global_prefix_value != 2) return 1;
+	if(global_prefix_value != 2) return 2;
+	if(--global_prefix_value != 1) return 3;
+	if(global_prefix_value != 1) return 4;
+	return 0;
+}
+
+int static_prefix_scalar() {
+	static int static_prefix_value;
+
+	static_prefix_value = 1;
+	if(++static_prefix_value != 2) return 1;
+	if(static_prefix_value != 2) return 2;
+	if(--static_prefix_value != 1) return 3;
+	if(static_prefix_value != 1) return 4;
+	return 0;
+}
+
 int main() {
 	int a = 0;
 	if(++a != 1) return 1;
@@ -346,5 +383,9 @@ int main() {
 	if(b != 0) return 33;
 
 	if(pointers_postfix_complex(arr, brr, trr_ptr) != 0) return 34;
-}
 
+	if(global_postfix_subscript() != 0) return 35;
+
+	if(global_prefix_scalar() != 0) return 36;
+	if(static_prefix_scalar() != 0) return 37;
+}

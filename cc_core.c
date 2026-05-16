@@ -882,8 +882,9 @@ void primary_expr_variable(void)
 		return;
 	}
 
-	int is_prefix_operator = (match("++", global_token->prev->prev->s) || match("--", global_token->prev->prev->s)) && (options != TLO_STATIC && options != TLO_GLOBAL);
-	int is_postfix_operator = (match("++", global_token->s) || match("--", global_token->s)) && (options != TLO_STATIC && options != TLO_GLOBAL);
+	int is_global_or_static_subscript = match("[", global_token->s) && (options == TLO_STATIC || options == TLO_GLOBAL);
+	int is_prefix_operator = (match("++", global_token->prev->prev->s) || match("--", global_token->prev->prev->s)) && !is_global_or_static_subscript;
+	int is_postfix_operator = match("++", global_token->s) || match("--", global_token->s);
 	int is_local_array = match("[", global_token->s) && (options & TLO_LOCAL_ARRAY);
 	int is_function = options & TLO_FUNCTION;
 
