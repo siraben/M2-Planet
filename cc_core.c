@@ -907,8 +907,14 @@ void primary_expr_variable(void)
 		return;
 	}
 
-	int is_prefix_operator = (match("++", global_token->prev->prev->s) || match("--", global_token->prev->prev->s)) && (options != TLO_STATIC && options != TLO_GLOBAL);
-	int is_postfix_operator = (match("++", global_token->s) || match("--", global_token->s)) && (options != TLO_STATIC && options != TLO_GLOBAL);
+	/* Prefix/postfix inc/dec need the ADDRESS of the variable in
+	 * REGISTER_ZERO, which is exactly what the early return below
+	 * leaves there. Globals and statics are included too, but only
+	 * for scalars (array_modifier of zero): sized global arrays rely
+	 * on the load below to decay the pointer cell to the array's
+	 * storage before the index gets added. */
+	int is_prefix_operator = (match("++", global_token->prev->prev->s) || match("--", global_token->prev->prev->s)) && ((options != TLO_STATIC && options != TLO_GLOBAL) || (0 == type->array_modifier));
+	int is_postfix_operator = (match("++", global_token->s) || match("--", global_token->s)) && ((options != TLO_STATIC && options != TLO_GLOBAL) || (0 == type->array_modifier));
 	int is_indexed_local_array = match("[", global_token->s) && (options & TLO_LOCAL_ARRAY);
 	int is_local_array = (options & TLO_LOCAL_ARRAY) != 0;
 	int is_function = options & TLO_FUNCTION;
@@ -1183,6 +1189,13 @@ void postfix_expr_array(void)
 	}
 	if(match("[", global_token->s))
 	{
+		current_target = current_target->type;
+	}
+	else if(is_prefix_operator || is_postfix_operator)
+	{
+		/* The object being incremented is the indexed element rather
+		 * than the pointer used to compute the element's address, so
+		 * hand the element's type to the inc/dec handling. */
 		current_target = current_target->type;
 	}
 
