@@ -75,6 +75,7 @@ int match(char* a, char* b);
 void require(int bool, char* error);
 void reset_hold_string(void);
 char* int2str(int x, int base, int signed_p);
+int strtoint_literal(char* s);
 
 void require_extra_token(void);
 void require_token(void);

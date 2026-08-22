@@ -21,6 +21,7 @@
 
 struct token_list* emit(char *s, struct token_list* head);
 void require(int bool, char* error);
+int strtoint(char *a);
 
 char upcase(char a)
 {
@@ -117,6 +118,31 @@ weird_reset:
 	if(in_set(c, " \t\n\r") && (':' == string[1])) return TRUE;
 	string = string + 1;
 	goto weird_reset;
+}
+
+/* The tokenizer gathers any trailing integer suffix characters
+ * (combinations of u, U, l and L) into the literal token itself.
+ * strtoint rejects strings with trailing non-digits and thus would
+ * parse every suffixed literal as zero. Strip the suffix before
+ * handing the literal over for parsing. */
+int strtoint_literal(char* s)
+{
+	int length = string_length(s);
+	while(0 < length)
+	{
+		if(in_set(s[length - 1], "uUlL"))
+		{
+			length = length - 1;
+		}
+		else break;
+	}
+
+	/* The string may live in read only memory (built-in macro values),
+	 * so parse from a copy instead of truncating in place. */
+	char* clean = calloc(length + 1, sizeof(char));
+	require(NULL != clean, "Exhausted memory while parsing an integer literal\n");
+	copy_string(clean, s, length);
+	return strtoint(clean);
 }
 
 /* Lookup escape values */

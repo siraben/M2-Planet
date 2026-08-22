@@ -265,7 +265,7 @@ int macro_variable(void)
 			fputs("hold->expansion is a null\n", stderr);
 			exit(EXIT_FAILURE);
 		}
-		value = strtoint(hold->expansion->s);
+		value = strtoint_literal(hold->expansion->s);
 	}
 	eat_current_token();
 	return value;
@@ -273,7 +273,7 @@ int macro_variable(void)
 
 int macro_number(void)
 {
-	int result = strtoint(macro_token->s);
+	int result = strtoint_literal(macro_token->s);
 	eat_current_token();
 	return result;
 }

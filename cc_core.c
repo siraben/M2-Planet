@@ -252,7 +252,7 @@ int constant_unary_expression(void)
 			}
 
 			require_extra_token();
-			return strtoint(lookup->arguments->s);
+			return strtoint_literal(lookup->arguments->s);
 		}
 		else
 		{
@@ -266,7 +266,7 @@ int constant_unary_expression(void)
 	else if(in_set(global_token->s[0], "0123456789"))
 	{
 		require_extra_token();
-		return strtoint(global_token->prev->s);
+		return strtoint_literal(global_token->prev->s);
 	}
 
 	line_error();
@@ -699,7 +699,7 @@ void primary_expr_char(void)
 
 void primary_expr_number(char* s)
 {
-	emit_load_immediate(REGISTER_ZERO, strtoint(s), "primary expr number");
+	emit_load_immediate(REGISTER_ZERO, strtoint_literal(s), "primary expr number");
 }
 
 struct token_list* load_address_of_variable_into_register(int reg, char* s)
@@ -886,7 +886,7 @@ void primary_expr_variable(void)
 	struct token_list* a = sym_lookup(s, global_constant_list);
 	if(NULL != a)
 	{
-		emit_load_immediate(REGISTER_ZERO, strtoint(a->arguments->s), "constant load");
+		emit_load_immediate(REGISTER_ZERO, strtoint_literal(a->arguments->s), "constant load");
 		return;
 	}
 
@@ -2362,7 +2362,7 @@ process_switch_iter:
 	while(NULL != backtrack)
 	{
 		/* put case value in R0 as the switch (value) is in R1 */
-		emit_load_immediate(REGISTER_ZERO, strtoint(backtrack->value), "Load case value");
+		emit_load_immediate(REGISTER_ZERO, strtoint_literal(backtrack->value), "Load case value");
 		hold = backtrack->next;
 
 		buf = concat_strings3(backtrack->value, "_", unique_id);
