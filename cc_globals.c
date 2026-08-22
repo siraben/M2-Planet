@@ -36,6 +36,7 @@ struct static_variable_list* function_static_variables_list;
 /* Make our string collection more efficient */
 char* hold_string;
 int string_index;
+int hold_string_hwm;
 int file_index;
 int file_max;
 char* file_buffer;

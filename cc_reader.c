@@ -153,11 +153,21 @@ int preserve_keyword(int c, char* S)
 
 void reset_hold_string(void)
 {
-	int i = MAX_STRING;
-	while(0 <= i)
+	/* Only the prefix of hold_string that was actually used needs to be
+	 * zeroed again: everything at or above hold_string_hwm has never been
+	 * written to and thus still holds zero from initialization.  Tracking
+	 * the high-water mark instead of always clearing MAX_STRING bytes
+	 * turns per-token clearing into per-token-length clearing. */
+	if(hold_string_hwm < string_index)
 	{
-		hold_string[i] = 0;
+		hold_string_hwm = string_index;
+	}
+
+	int i = hold_string_hwm;
+	while(0 < i)
+	{
 		i = i - 1;
+		hold_string[i] = 0;
 	}
 	string_index = 0;
 }
