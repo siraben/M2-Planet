@@ -116,13 +116,75 @@ struct token_list* sym_declare(char *s, struct type* t, struct token_list* list,
 	return a;
 }
 
+/* The lookup cache below holds 4096 (a power of two) entries.  A #define
+ * is deliberately avoided: --bootstrap-mode strips preprocessor lines. */
+
+struct sym_lookup_cache_entry
+{
+	char* name;
+	struct token_list* head;
+	struct token_list* result;
+};
+
+/* Direct-mapped memoization of sym_lookup results.  Allocated on first
+ * use because --bootstrap-mode does not support global array definitions.
+ * Zero-initialized like all globals. */
+struct sym_lookup_cache_entry* sym_lookup_cache;
+
+int sym_hash(char* s)
+{
+	/* h is masked to 16 bits every iteration so the shifted value can
+	 * never overflow a signed int */
+	int h = 5381 & 0xFFFF;
+	while(0 != s[0])
+	{
+		h = ((h << 5) + h) & 0xFFFF;
+		h = h + (s[0] & 0xFF);
+		s = s + 1;
+	}
+	return h & 4095; /* 4096 entry cache, so mask off the low 12 bits */
+}
+
 struct token_list* sym_lookup(char *s, struct token_list* symbol_list)
 {
+	struct sym_lookup_cache_entry* e;
 	struct token_list* i;
+	int slot;
+
+	if(NULL == symbol_list)
+	{
+		return NULL;
+	}
+
+	if(NULL == sym_lookup_cache)
+	{
+		sym_lookup_cache = calloc(4096, sizeof(struct sym_lookup_cache_entry));
+		require(NULL != sym_lookup_cache, "Exhausted memory while allocating sym_lookup cache\n");
+	}
+
+	slot = sym_hash(s);
+	e = &(sym_lookup_cache[slot]);
+	if((NULL != e->name) && (e->head == symbol_list) && match(e->name, s))
+	{
+		return e->result;
+	}
+
 	for(i = symbol_list; NULL != i; i = i->next)
 	{
-		if(match(i->s, s)) return i;
+		if(match(i->s, s))
+		{
+			e->name = i->s;
+			e->head = symbol_list;
+			e->result = i;
+			return i;
+		}
 	}
+
+	/* Negative result.  Token strings are heap-allocated once and are
+	 * never mutated or freed afterwards, so the pointer is a stable key. */
+	e->name = s;
+	e->head = symbol_list;
+	e->result = NULL;
 	return NULL;
 }
 
