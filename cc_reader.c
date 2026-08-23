@@ -157,7 +157,13 @@ void reset_hold_string(void)
 	 * zeroed again: everything at or above hold_string_hwm has never been
 	 * written to and thus still holds zero from initialization.  Tracking
 	 * the high-water mark instead of always clearing MAX_STRING bytes
-	 * turns per-token clearing into per-token-length clearing. */
+	 * turns per-token clearing into per-token-length clearing.
+	 *
+	 * After clearing [0, hold_string_hwm) every cell below the old mark
+	 * holds zero, so the mark can safely shrink back down to the extent
+	 * of the round that is just ending: a later longer token still finds
+	 * its terminator cell zeroed by the previous round's clear, while
+	 * short tokens no longer pay for an occasional long one forever. */
 	if(hold_string_hwm < string_index)
 	{
 		hold_string_hwm = string_index;
@@ -169,6 +175,7 @@ void reset_hold_string(void)
 		i = i - 1;
 		hold_string[i] = 0;
 	}
+	hold_string_hwm = string_index;
 	string_index = 0;
 }
 
