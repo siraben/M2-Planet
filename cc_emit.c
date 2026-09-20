@@ -19,6 +19,25 @@
 
 void emit_load_named_immediate(int reg, char* prefix, char* name, char* note);
 
+int try_emit_amd64_immediate(char* s);
+
+/* Only emitted nodes use these tags. Their options/depth fields hold an
+ * emission kind and immediate value, not parser symbol flags/stack offsets.
+ * Reuse the existing storage rather than enlarge every source token. */
+enum { EMIT_IMMEDIATE = 1 };
+
+int is_emitted_immediate(struct token_list* node)
+{
+	if(node == NULL) return FALSE;
+	return node->options == EMIT_IMMEDIATE;
+}
+
+void mark_emitted_immediate(struct token_list* node, int value)
+{
+	node->options = EMIT_IMMEDIATE;
+	node->depth = value;
+}
+
 struct token_list* emit(char *s, struct token_list* head)
 {
 	struct token_list* t = calloc(1, sizeof(struct token_list));
@@ -28,9 +47,18 @@ struct token_list* emit(char *s, struct token_list* head)
 	return t;
 }
 
-void emit_out(char* s)
+void emit_out_raw(char* s)
 {
 	output_list = emit(s, output_list);
+}
+
+void emit_out(char* s)
+{
+	if(AMD64 == Architecture)
+	{
+		if(try_emit_amd64_immediate(s)) return;
+	}
+	emit_out_raw(s);
 }
 
 void emit_label(char* prefix, char* name)
@@ -213,52 +241,52 @@ char* comparison_jump(int reg, int jump_when_true)
 	if(AMD64 != Architecture) return NULL;
 	if(REGISTER_ZERO != reg) return NULL;
 	if(NULL == output_list) return NULL;
-	if(match("cmp_rbx,rax\nsetl_al\nmovzx_rax,al\n", output_list->s))
+	if(match("cmp_rbx,rax\nsetl_al\nmovzx_rax,al\n", output_list->s) || match("setl_al\nmovzx_rax,al\n", output_list->s))
 	{
 		if(jump_when_true) return "'0F8C' %";
 		return "'0F8D' %";
 	}
-	if(match("cmp_rbx,rax\nsetle_al\nmovzx_rax,al\n", output_list->s))
+	if(match("cmp_rbx,rax\nsetle_al\nmovzx_rax,al\n", output_list->s) || match("setle_al\nmovzx_rax,al\n", output_list->s))
 	{
 		if(jump_when_true) return "'0F8E' %";
 		return "'0F8F' %";
 	}
-	if(match("cmp_rbx,rax\nsetge_al\nmovzx_rax,al\n", output_list->s))
+	if(match("cmp_rbx,rax\nsetge_al\nmovzx_rax,al\n", output_list->s) || match("setge_al\nmovzx_rax,al\n", output_list->s))
 	{
 		if(jump_when_true) return "'0F8D' %";
 		return "'0F8C' %";
 	}
-	if(match("cmp_rbx,rax\nsetg_al\nmovzx_rax,al\n", output_list->s))
+	if(match("cmp_rbx,rax\nsetg_al\nmovzx_rax,al\n", output_list->s) || match("setg_al\nmovzx_rax,al\n", output_list->s))
 	{
 		if(jump_when_true) return "'0F8F' %";
 		return "'0F8E' %";
 	}
-	if(match("cmp_rbx,rax\nsetb_al\nmovzx_rax,al\n", output_list->s))
+	if(match("cmp_rbx,rax\nsetb_al\nmovzx_rax,al\n", output_list->s) || match("setb_al\nmovzx_rax,al\n", output_list->s))
 	{
 		if(jump_when_true) return "'0F82' %";
 		return "'0F83' %";
 	}
-	if(match("cmp_rbx,rax\nsetbe_al\nmovzx_rax,al\n", output_list->s))
+	if(match("cmp_rbx,rax\nsetbe_al\nmovzx_rax,al\n", output_list->s) || match("setbe_al\nmovzx_rax,al\n", output_list->s))
 	{
 		if(jump_when_true) return "'0F86' %";
 		return "'0F87' %";
 	}
-	if(match("cmp_rbx,rax\nsetae_al\nmovzx_rax,al\n", output_list->s))
+	if(match("cmp_rbx,rax\nsetae_al\nmovzx_rax,al\n", output_list->s) || match("setae_al\nmovzx_rax,al\n", output_list->s))
 	{
 		if(jump_when_true) return "'0F83' %";
 		return "'0F82' %";
 	}
-	if(match("cmp_rbx,rax\nseta_al\nmovzx_rax,al\n", output_list->s))
+	if(match("cmp_rbx,rax\nseta_al\nmovzx_rax,al\n", output_list->s) || match("seta_al\nmovzx_rax,al\n", output_list->s))
 	{
 		if(jump_when_true) return "'0F87' %";
 		return "'0F86' %";
 	}
-	if(match("cmp_rbx,rax\nsete_al\nmovzx_rax,al\n", output_list->s))
+	if(match("cmp_rbx,rax\nsete_al\nmovzx_rax,al\n", output_list->s) || match("sete_al\nmovzx_rax,al\n", output_list->s))
 	{
 		if(jump_when_true) return "'0F84' %";
 		return "'0F85' %";
 	}
-	if(match("cmp_rbx,rax\nsetne_al\nmovzx_rax,al\n", output_list->s))
+	if(match("cmp_rbx,rax\nsetne_al\nmovzx_rax,al\n", output_list->s) || match("setne_al\nmovzx_rax,al\n", output_list->s))
 	{
 		if(jump_when_true) return "'0F85' %";
 		return "'0F84' %";
@@ -273,7 +301,8 @@ int emit_comparison_jump(int reg, char* prefix, char* name, char* note, int jump
 
 	/* Only the consuming control statement calls this helper: the Boolean
 	 * result is dead. CMP's signed/unsigned condition flags remain live. */
-	output_list->s = "cmp_rbx,rax\n";
+	if(output_list->s[0] == 'c') output_list->s = "cmp_rbx,rax\n";
+	else output_list = output_list->next;
 	emit_out(branch);
 	emit_out(prefix);
 	emit_out(name);
@@ -735,6 +764,9 @@ void emit_load_immediate(int reg, int value, char* note)
 	reset_emit_string();
 	write_load_immediate(reg, value, note);
 	emit_out(emit_string);
+	if(AMD64 != Architecture) return;
+	if(REGISTER_ZERO != reg) return;
+	mark_emitted_immediate(output_list, value);
 }
 
 /* Adds destination and source and places result in destination */
@@ -1456,3 +1488,162 @@ void emit_return()
 	emit_out(return_instruction);
 }
 
+
+int amd64_prefix(char* text, char* prefix)
+{
+	int i = 0;
+	while(prefix[i] != 0)
+	{
+		if(text[i] != prefix[i]) return FALSE;
+		i = i + 1;
+	}
+	return TRUE;
+}
+
+/* Only these word operations have the same RAX result with an immediate RHS.
+ * Division, remainder, shifts, pointer scaling and every other emission fall
+ * through. CMP keeps its already-selected signed/unsigned SETcc suffix. */
+int amd64_immediate_operation(char* s)
+{
+	if(match(s, "add_rax,rbx\n")) return 1;
+	if(match(s, "sub_rbx,rax\nmov_rax,rbx\n")) return 2;
+	if(match(s, "mul_rbx\n")) return 3;
+	if(match(s, "imul_rbx\n")) return 3;
+	if(match(s, "and_rax,rbx\n")) return 4;
+	if(match(s, "or_rax,rbx\n")) return 5;
+	if(match(s, "xor_rax,rbx\n")) return 6;
+	if(amd64_prefix(s, "cmp_rbx,rax\n")) return 7;
+	return 0;
+}
+
+struct token_list* amd64_skip_token(struct token_list* t, char* s)
+{
+	if(t == NULL) return NULL;
+	if(!match(t->s, s)) return NULL;
+	return t->next;
+}
+
+/* Match the complete, reversed emission sequence, including recursion notes:
+ * PUSH RAX; one literal load; POP RBX. No call, store, cast conversion, pointer
+ * scaling or other RHS work can be hidden inside that single marked node. */
+struct token_list* amd64_literal_rhs(void)
+{
+	struct token_list* t = output_list;
+	t = amd64_skip_token(t, "\n");
+	t = amd64_skip_token(t, "_common_recursion");
+	t = amd64_skip_token(t, " # ");
+	t = amd64_skip_token(t, "rbx");
+	t = amd64_skip_token(t, "pop_");
+	if(t == NULL) return NULL;
+	if(!is_emitted_immediate(t)) return NULL;
+	return t;
+}
+
+int amd64_signed32(int value)
+{
+	if(value > 2147483647) return FALSE;
+	if(value < -2147483647 - 1) return FALSE;
+	return TRUE;
+}
+
+/* Check before calculating: the compiler itself can have 32-bit int even
+ * when emitting 64-bit target code. Never fold an overflowing word result or
+ * silently narrow a 64-bit target computation to the compiler's int width. */
+int amd64_foldable(int op, int a, int b)
+{
+	int hi = 2147483647;
+	int lo = -2147483647 - 1;
+	if(!amd64_signed32(a)) return FALSE;
+	if(!amd64_signed32(b)) return FALSE;
+	if(op == 1)
+	{
+		if(b > 0) return a <= hi - b;
+		if(b < 0) return a >= lo - b;
+		return TRUE;
+	}
+	if(op == 2)
+	{
+		if(b > 0) return a >= lo + b;
+		if(b < 0) return a <= hi + b;
+		return TRUE;
+	}
+	if(op == 3)
+	{
+		if(a == 0) return TRUE;
+		if(b == 0) return TRUE;
+		if(a > 0)
+		{
+			if(b > 0) return a <= hi / b;
+			return b >= lo / a;
+		}
+		if(b > 0) return a >= lo / b;
+		return a >= hi / b;
+	}
+	if(op >= 4) return op <= 6;
+	return FALSE;
+}
+
+int try_emit_amd64_immediate(char* s)
+{
+	struct token_list* rhs;
+	struct token_list* before;
+	int op = 0;
+	int a;
+	int b;
+	int value;
+	char* instruction;
+	if(Architecture == AMD64) op = amd64_immediate_operation(s);
+	if(op == 0)
+	{
+		return FALSE;
+	}
+	rhs = amd64_literal_rhs();
+	if(rhs == NULL)
+	{
+		return FALSE;
+	}
+	b = rhs->depth;
+	before = rhs->next;
+	before = amd64_skip_token(before, "\n");
+	before = amd64_skip_token(before, "_common_recursion");
+	before = amd64_skip_token(before, " # ");
+	before = amd64_skip_token(before, "rax");
+	before = amd64_skip_token(before, "push_");
+	if(before == NULL || !amd64_signed32(b))
+	{
+		return FALSE;
+	}
+	if(is_emitted_immediate(before))
+	{
+		a = before->depth;
+		if(amd64_foldable(op, a, b))
+		{
+			value = 0;
+			if(op == 1) value = a + b;
+			if(op == 2) value = a - b;
+			if(op == 3) value = a * b;
+			if(op == 4) value = a & b;
+			if(op == 5) value = a | b;
+			if(op == 6) value = a ^ b;
+			output_list = before->next;
+			emit_load_immediate(REGISTER_ZERO, value, "folded literal operands");
+			return TRUE;
+		}
+	}
+	/* RBX/RDX are expression temporaries, never live across the original
+	 * operation. RAX and comparison flags are the only consumed results. */
+	instruction = NULL;
+	if(op == 1) instruction = "'4805' %";
+	if(op == 2) instruction = "'482D' %";
+	if(op == 3) instruction = "'4869C0' %";
+	if(op == 4) instruction = "'4825' %";
+	if(op == 5) instruction = "'480D' %";
+	if(op == 6) instruction = "'4835' %";
+	if(op == 7) instruction = "'483D' %";
+	output_list = before;
+	emit_out_raw(instruction);
+	emit_out_raw(int2str(b, 10, TRUE));
+	emit_out_raw(" # immediate RHS\n");
+	if(op == 7) emit_out_raw(s + 12);
+	return TRUE;
+}
