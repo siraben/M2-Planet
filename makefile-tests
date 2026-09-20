@@ -63,7 +63,7 @@ aarch64-tests: \
 	test0106-aarch64-binary \
 	test1000-aarch64-binary | results
 
-amd64-tests: \
+amd64-tests: comparison-branches-codegen \
 	run-pass-amd64 \
 	test0000-amd64-binary \
 	test0001-amd64-binary \
@@ -1157,3 +1157,7 @@ test0106-x86-binary: M2-Planet | results
 
 test1000-x86-binary: M2-Planet | results
 	test/test1000/hello-x86.sh
+
+.PHONY: comparison-branches-codegen
+comparison-branches-codegen: M2-Planet | results
+	test/comparison-branches.sh

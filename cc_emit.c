@@ -204,8 +204,92 @@ void emit_unconditional_jump(char* prefix, char* name, char* note)
 	}
 }
 
+/* A relational value immediately consumed by a branch does not need to be
+ * materialized as 0/1 in REGISTER_ZERO. Match complete emission fragments so
+ * intervening arithmetic, stores, calls, labels and Boolean operations exclude
+ * this rewrite. The consuming statement does not retain the result register. */
+char* comparison_jump(int reg, int jump_when_true)
+{
+	if(AMD64 != Architecture) return NULL;
+	if(REGISTER_ZERO != reg) return NULL;
+	if(NULL == output_list) return NULL;
+	if(match("cmp_rbx,rax\nsetl_al\nmovzx_rax,al\n", output_list->s))
+	{
+		if(jump_when_true) return "'0F8C' %";
+		return "'0F8D' %";
+	}
+	if(match("cmp_rbx,rax\nsetle_al\nmovzx_rax,al\n", output_list->s))
+	{
+		if(jump_when_true) return "'0F8E' %";
+		return "'0F8F' %";
+	}
+	if(match("cmp_rbx,rax\nsetge_al\nmovzx_rax,al\n", output_list->s))
+	{
+		if(jump_when_true) return "'0F8D' %";
+		return "'0F8C' %";
+	}
+	if(match("cmp_rbx,rax\nsetg_al\nmovzx_rax,al\n", output_list->s))
+	{
+		if(jump_when_true) return "'0F8F' %";
+		return "'0F8E' %";
+	}
+	if(match("cmp_rbx,rax\nsetb_al\nmovzx_rax,al\n", output_list->s))
+	{
+		if(jump_when_true) return "'0F82' %";
+		return "'0F83' %";
+	}
+	if(match("cmp_rbx,rax\nsetbe_al\nmovzx_rax,al\n", output_list->s))
+	{
+		if(jump_when_true) return "'0F86' %";
+		return "'0F87' %";
+	}
+	if(match("cmp_rbx,rax\nsetae_al\nmovzx_rax,al\n", output_list->s))
+	{
+		if(jump_when_true) return "'0F83' %";
+		return "'0F82' %";
+	}
+	if(match("cmp_rbx,rax\nseta_al\nmovzx_rax,al\n", output_list->s))
+	{
+		if(jump_when_true) return "'0F87' %";
+		return "'0F86' %";
+	}
+	if(match("cmp_rbx,rax\nsete_al\nmovzx_rax,al\n", output_list->s))
+	{
+		if(jump_when_true) return "'0F84' %";
+		return "'0F85' %";
+	}
+	if(match("cmp_rbx,rax\nsetne_al\nmovzx_rax,al\n", output_list->s))
+	{
+		if(jump_when_true) return "'0F85' %";
+		return "'0F84' %";
+	}
+	return NULL;
+}
+
+int emit_comparison_jump(int reg, char* prefix, char* name, char* note, int jump_when_true)
+{
+	char* branch = comparison_jump(reg, jump_when_true);
+	if(branch == NULL) return FALSE;
+
+	/* Only the consuming control statement calls this helper: the Boolean
+	 * result is dead. CMP's signed/unsigned condition flags remain live. */
+	output_list->s = "cmp_rbx,rax\n";
+	emit_out(branch);
+	emit_out(prefix);
+	emit_out(name);
+	if(note != NULL)
+	{
+		emit_out(" # ");
+		emit_out(note);
+	}
+	emit_out("\n");
+	return TRUE;
+}
+
 void emit_jump_if_zero(int reg, char* prefix, char* name, char* note)
 {
+	if(emit_comparison_jump(reg, prefix, name, note, FALSE)) return;
+
 	char* reg_name = register_from_string(reg);
 
 	if(Architecture & ARCH_FAMILY_KNIGHT)
@@ -267,6 +351,8 @@ void emit_jump_if_zero(int reg, char* prefix, char* name, char* note)
 
 void emit_jump_if_not_zero(int reg, char* prefix, char* name, char* note)
 {
+	if(emit_comparison_jump(reg, prefix, name, note, TRUE)) return;
+
 	char* reg_name = register_from_string(reg);
 
 	if(Architecture & ARCH_FAMILY_KNIGHT)
