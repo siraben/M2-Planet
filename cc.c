@@ -152,8 +152,9 @@ int main(int argc, char** argv)
 			else
 			{
 				fputs("Unknown architecture: ", stderr);
+				if(NULL == arch) { arch = ""; }
 				fputs(arch, stderr);
-				fputs(" know values are: knight-native, knight-posix, x86, amd64, armv7l, aarch64, riscv32 and riscv64\n", stderr);
+				fputs(" known values are: knight-native, knight-posix, x86, amd64, armv7l, aarch64, riscv32 and riscv64\n", stderr);
 				exit(EXIT_FAILURE);
 			}
 			i = i + 2;
@@ -327,7 +328,7 @@ int main(int argc, char** argv)
 	{
 		return_instruction = "RET R15\n";
 	}
-	else if (Architecture == AARCH64 || Architecture & (ARCH_FAMILY_X86 | ARCH_FAMILY_RISCV))
+	else if (Architecture == AARCH64 || (Architecture & (ARCH_FAMILY_X86 | ARCH_FAMILY_RISCV)))
 	{
 		return_instruction = "ret\n";
 	}
